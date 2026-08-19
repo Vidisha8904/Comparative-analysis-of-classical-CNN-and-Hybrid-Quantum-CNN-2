@@ -1,0 +1,36 @@
+# Phase 6 parameter-matched capacity comparison: mid-sized classical CNN (~10k
+# params) via adaptive_pool_size=2 + a wider fc_hidden -- exists to show the
+# shape of the accuracy-vs-parameters curve, not just its two endpoints.
+# Otherwise identical to configs/base/classical_full.yaml (same 12 epochs, batch
+# size 64, learning rate 0.001, full 60,000/10,000 MNIST split, data_seed/
+# training_seed 42) -- see section 14 of the build spec.
+#
+# target_parameters is documentation only (not consumed by the model); run_capacity.py
+# checks the model's actual parameter count against it before training.
+
+data_seed: 42   # fixed across every phase -- controls which images subsample_per_class picks
+training_seed: 42   # matches every other Phase 1 base config -- single-seed for this phase
+
+dataset:
+  classes: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+  samples_per_class_train: null
+  samples_per_class_test: null
+  full: true
+  data_root: "data"
+
+training:
+  batch_size: 64
+  epochs: 12
+  learning_rate: 0.001
+  optimizer: adam
+  checkpoint_every_n_batches: 200
+  resume_from_checkpoint: null
+  max_batches: null
+
+model:
+  num_classes: 10
+  adaptive_pool_size: 2
+  fc_hidden: 117
+  target_parameters: 10000
+
+output_dir: "results/capacity/classical_full_mid"

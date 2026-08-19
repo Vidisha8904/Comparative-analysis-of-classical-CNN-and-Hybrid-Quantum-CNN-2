@@ -1,0 +1,8 @@
+torch
+torchvision
+pennylane
+pennylane-lightning
+scikit-learn
+matplotlib
+pandas
+pyyaml

@@ -1,0 +1,31 @@
+# Hybrid quantum CNN config, trained on the reduced MNIST subset.
+# The `dataset` block below must stay identical (classes, samples_per_class_train,
+# samples_per_class_test, seed) to the one in classical_subset.yaml -- that identity
+# is what makes the classical-vs-hybrid comparison valid.
+
+data_seed: 42   # fixed across every phase -- controls which images subsample_per_class picks
+training_seed: 42   # varies in Phase 4's multi-seed sweep -- controls weight init + batch shuffling
+
+dataset:
+  classes: [0, 1, 2]
+  samples_per_class_train: 300
+  samples_per_class_test: 100
+  data_root: "data"
+
+training:
+  batch_size: 32
+  epochs: 15
+  learning_rate: 0.001
+  optimizer: adam
+  checkpoint_every_n_batches: null
+  resume_from_checkpoint: null
+  max_batches: null
+
+model:
+  num_classes: 3
+  n_qubits: 4
+  n_qlayers: 2
+  encoding: angle   # qml.AngleEmbedding
+  device: "default.qubit"
+
+output_dir: "results/base/hybrid_subset"

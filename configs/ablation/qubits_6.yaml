@@ -1,0 +1,30 @@
+# Phase 3, Sweep A (qubit count): n_qubits=6, n_qlayers held at the Phase 1
+# baseline depth (2). Dataset block is identical to configs/base/hybrid_subset.yaml
+# so results stay directly comparable to Phase 1/2 runs.
+
+data_seed: 42   # fixed across every phase -- controls which images subsample_per_class picks
+training_seed: 42   # varies in Phase 4's multi-seed sweep -- controls weight init + batch shuffling
+
+dataset:
+  classes: [0, 1, 2]
+  samples_per_class_train: 300
+  samples_per_class_test: 100
+  data_root: "data"
+
+training:
+  batch_size: 32
+  epochs: 15
+  learning_rate: 0.001
+  optimizer: adam
+  checkpoint_every_n_batches: null
+  resume_from_checkpoint: null
+  max_batches: null
+
+model:
+  num_classes: 3
+  n_qubits: 6
+  n_qlayers: 2
+  encoding: angle   # qml.AngleEmbedding
+  device: "default.qubit"
+
+output_dir: "results/ablation/qubits_6"

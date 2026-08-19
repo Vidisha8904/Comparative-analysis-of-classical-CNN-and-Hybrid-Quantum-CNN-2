@@ -1,0 +1,32 @@
+# Phase 2, Option 2: train a hybrid model from scratch with 30% depolarizing
+# noise present during training (not just at eval time).
+# Identical to configs/base/hybrid_subset.yaml except model.noise_prob and
+# output_dir -- the `dataset` block must stay identical to every other subset
+# config, same reason as always.
+
+data_seed: 42   # fixed across every phase -- controls which images subsample_per_class picks
+training_seed: 42   # varies in Phase 4's multi-seed sweep -- controls weight init + batch shuffling
+
+dataset:
+  classes: [0, 1, 2]
+  samples_per_class_train: 300
+  samples_per_class_test: 100
+  data_root: "data"
+
+training:
+  batch_size: 32
+  epochs: 15
+  learning_rate: 0.001
+  optimizer: adam
+  checkpoint_every_n_batches: null
+  resume_from_checkpoint: null
+  max_batches: null
+
+model:
+  num_classes: 3
+  n_qubits: 4
+  n_qlayers: 2
+  encoding: angle   # qml.AngleEmbedding
+  noise_prob: 0.30
+
+output_dir: "results/noise/train_30"

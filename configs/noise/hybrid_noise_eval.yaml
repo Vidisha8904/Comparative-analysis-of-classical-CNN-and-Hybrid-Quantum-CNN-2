@@ -1,0 +1,30 @@
+# Phase 2, Option 1: evaluate the already-trained hybrid_subset model at
+# increasing depolarizing noise levels -- no retraining.
+# The `dataset` block below must stay identical to configs/base/hybrid_subset.yaml
+# (and classical_subset.yaml) -- that identity is what makes every comparison
+# in this project valid.
+
+data_seed: 42   # fixed across every phase -- controls which images subsample_per_class picks
+training_seed: 42   # varies in Phase 4's multi-seed sweep -- controls weight init + batch shuffling
+
+dataset:
+  classes: [0, 1, 2]
+  samples_per_class_train: 300
+  samples_per_class_test: 100
+  data_root: "data"
+
+training:
+  batch_size: 32
+
+model:
+  num_classes: 3
+  n_qubits: 4
+  n_qlayers: 2
+  encoding: angle   # qml.AngleEmbedding
+
+noise:
+  type: depolarizing
+  levels: [0.0, 0.01, 0.05, 0.1, 0.2]
+  base_model_checkpoint: results/base/hybrid_subset/model.pt
+
+output_dir: "results/noise/eval_sweep"

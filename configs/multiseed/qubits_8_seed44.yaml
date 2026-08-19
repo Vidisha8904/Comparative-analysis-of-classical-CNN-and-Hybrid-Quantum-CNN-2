@@ -1,0 +1,30 @@
+# Phase 4 multi-seed variance check: re-run of configs/ablation/qubits_8.yaml
+# with training_seed=44 (data_seed unchanged at 42). Everything else is
+# identical to the Phase 3 parent config -- see section 10 of the build spec.
+
+data_seed: 42   # fixed across every phase -- controls which images subsample_per_class picks
+training_seed: 44   # Phase 4 multi-seed sweep point (data_seed stays 42)
+
+dataset:
+  classes: [0, 1, 2]
+  samples_per_class_train: 300
+  samples_per_class_test: 100
+  data_root: "data"
+
+training:
+  batch_size: 32
+  epochs: 15
+  learning_rate: 0.001
+  optimizer: adam
+  checkpoint_every_n_batches: null
+  resume_from_checkpoint: null
+  max_batches: null
+
+model:
+  num_classes: 3
+  n_qubits: 8
+  n_qlayers: 2
+  encoding: angle   # qml.AngleEmbedding
+  device: "default.qubit"
+
+output_dir: "results/multiseed/qubits_8_seed44"
