@@ -15,8 +15,10 @@ Every experiment shares data (`data_seed`), and where relevant training initiali
 4. **Multi-seed variance check** (subset only) — re-ran Experiment 3's sweep extremes across 5 seeds each, to separate genuine architectural effects from random-init noise.
 5. **Multi-seed base model comparison** (subset only) — applied the same 5-seed treatment to the Experiment 1 headline result (`classical_subset` vs `hybrid_subset`).
 6. **Parameter-matched capacity comparison** (full dataset) — trains classical CNNs at parameter budgets matched to `hybrid_full`, to test whether Experiment 1's "hybrid needs fewer parameters" finding holds under a controlled, equal-budget comparison.
+7. **Barren-plateau check** (diagnostic only, no training) — measures gradient variance of the bare quantum circuit directly (McClean et al. 2018 method) across the qubit and depth ranges used elsewhere, to test whether a vanishing-gradient plateau — rather than a task ceiling — explains Experiment 3's flat accuracy sweeps.
+8. **Qubit / depth ablation on full 10-class MNIST** (2,500/500 per class) — reruns Experiment 3's grid on a much harder task, to check whether its single-seed zigzag was a ceiling artifact of the easy 3-class subset.
 
-Findings from Experiments 3–6 are summarized in [Key results](#key-results) below and covered in full in the corresponding notebook (see [Notebooks](#notebooks)).
+Findings from Experiments 3–8 are summarized in [Key results](#key-results) below and covered in full in the corresponding notebook (see [Notebooks](#notebooks)).
 
 ## Tech stack
 
@@ -35,9 +37,11 @@ qcnn-dissertation/
 ├── configs/
 │   ├── base/                 # Experiment 1: classical + hybrid, subset and full MNIST
 │   ├── noise/                # Experiment 2: noise-robustness eval sweep + fixed-level training
-│   ├── ablation/              # Experiment 3: qubit count / depth sweeps
+│   ├── ablation/              # Experiment 3: qubit count / depth sweeps (3-class subset)
 │   ├── multiseed/             # Experiments 4 + 5: seed sweep configs (ablation extremes + base models)
-│   └── capacity/               # Experiment 6: parameter-matched classical configs
+│   ├── capacity/               # Experiment 6: parameter-matched classical configs
+│   ├── barren_plateau/         # Experiment 7: gradient-variance diagnostic configs (sampling_seed, no data/training)
+│   └── ablation_full10/        # Experiment 8: same qubit/depth grid, 10-class / 2500-per-class regime
 ├── data/                     # MNIST cache (gitignored, auto-downloaded)
 ├── src/
 │   ├── data/                 # dataset loading, class filtering, subsampling
@@ -51,7 +55,9 @@ qcnn-dissertation/
 │   ├── noise/                # Experiment 2 eval-sweep and fixed-noise-level training outputs
 │   ├── ablation/              # Experiment 3 outputs + metrics_summary.csv
 │   ├── multiseed/             # Experiments 4 + 5 outputs + shared summary.csv / per_seed_metrics.csv
-│   └── capacity/               # Experiment 6 outputs + summary.csv
+│   ├── capacity/               # Experiment 6 outputs + summary.csv
+│   ├── barren_plateau/         # Experiment 7 outputs (metrics.csv + summary.csv only, no checkpoints)
+│   └── ablation_full10/        # Experiment 8 outputs + metrics_summary.csv
 ├── figures/                  # comparison plots, confusion matrices (gitignored)
 └── tests/                    # smoke tests for dataset/model/quantum-layer/training-helper behavior
 ```
@@ -87,9 +93,13 @@ python -m src.experiments.run_hybrid --config configs/base/hybrid_full.yaml
 python -m src.experiments.run_noise_eval --config configs/noise/hybrid_noise_eval.yaml
 python -m src.experiments.run_noise_train --config configs/noise/hybrid_noise_train_10.yaml
 
-# Experiment 3: qubit / depth ablation (subset only)
+# Experiment 3: qubit / depth ablation (3-class subset)
 python -m src.experiments.run_ablation --sweep qubits
 python -m src.experiments.run_ablation --sweep depth
+
+# Experiment 8: the same ablation grid on the 10-class / 2500-per-class regime
+python -m src.experiments.run_ablation --sweep qubits --dataset-regime full10_2500
+python -m src.experiments.run_ablation --sweep depth  --dataset-regime full10_2500
 
 # Experiments 4 + 5: multi-seed variance (subset only)
 python -m src.experiments.run_multiseed --config-group qubits_2      # Experiment 4 groups: qubits_2, qubits_8, depth_1, depth_2
@@ -97,9 +107,15 @@ python -m src.experiments.run_multiseed --config-group hybrid_subset # Experimen
 
 # Experiment 6: parameter-matched capacity comparison (full dataset)
 python -m src.experiments.run_capacity
+
+# Experiment 7: barren-plateau check -- gradient variance, no training
+python -m src.experiments.run_barren_plateau_check --sweep qubits --extended
+python -m src.experiments.run_barren_plateau_check --sweep depth
 ```
 
 Each writes a model checkpoint, `metrics.csv`, and a training-curve plot to the config's `output_dir`; the multi-run scripts (`run_ablation`, `run_multiseed`, `run_capacity`) additionally write a cross-run `summary.csv` and comparison figures.
+
+`run_barren_plateau_check` is the exception: it trains nothing and loads no data. It samples gradients of the bare quantum circuit at random weights, so its configs carry a `sampling_seed` instead of the `data_seed`/`training_seed` pair, and it writes only `metrics.csv` + `summary.csv` (no checkpoint). `--extended` adds diagnostic-only grid points at 10/12/14 qubits, past the range any trained model here uses — cheap because no training is involved.
 
 ### Tests
 
@@ -122,8 +138,12 @@ One exploratory notebook per experiment, each loading its experiment's configs/r
 | [qubit_depth_multiseed_ablation.ipynb](notebooks/qubit_depth_multiseed_ablation.ipynb) | 4 | 5-seed variance check on the Experiment 3 sweep extremes |
 | [base_model_seed_variance.ipynb](notebooks/base_model_seed_variance.ipynb) | 5 | 5-seed variance check on `classical_subset` vs `hybrid_subset` |
 | [parameter_matched_capacity.ipynb](notebooks/parameter_matched_capacity.ipynb) | 6 | accuracy vs. parameter count, classical vs. `hybrid_full` |
+| [barren_plateau_gradient_variance.ipynb](notebooks/barren_plateau_gradient_variance.ipynb) | 7 | direct gradient-variance measurement, global vs. local cost |
+| [qubit_depth_full10_ablation.ipynb](notebooks/qubit_depth_full10_ablation.ipynb) | 8 | the Experiment 3 grid re-run on 10 classes at 2500/500 per class |
 
 ## Configuration
+
+`run_ablation.py` takes a `--dataset-regime` flag selecting *which config directory* the same sweep machinery loads: `subset3` (default, `configs/ablation/`, Experiment 3's 3-class grid) or `full10_2500` (`configs/ablation_full10/`, all 10 classes at 2500 train / 500 test per class). Nothing else about the run differs between regimes — that is what makes the two directly comparable. Results land in `results/ablation/` and `results/ablation_full10/` respectively, so neither overwrites the other.
 
 All subset configs (`configs/base/*_subset.yaml`, `configs/noise/`, `configs/ablation/`, `configs/multiseed/`) share an identical `dataset` block — `classes`, `samples_per_class_train`, `samples_per_class_test` — and the same `data_seed: 42`. That identity is what makes every classical-vs-hybrid or seed-vs-seed comparison valid; treat any divergence as a bug.
 
@@ -159,5 +179,9 @@ Two separate seed fields, not one: `data_seed` (fixed at 42 everywhere) controls
 | `classical_full` | 52,138 | 98.67% |
 
 At matched parameter count, a classical CNN performs statistically indistinguishably from `hybrid_full` (97.03% vs. 97.07%) — undercutting Experiment 1's "hybrid uses far fewer parameters" framing as a quantum-specific advantage. The more defensible reading: full MNIST simply doesn't require many parameters regardless of architecture, and this is the controlled check the unmatched Experiment 1 comparison was missing (see `parameter_matched_capacity.ipynb` for the full discussion, including the ~15–19x training-time gap between the two architectures at matched accuracy).
+
+**Experiment 7 — barren-plateau check (gradient-variance diagnostic, no training).** Global-cost gradient variance falls exponentially with qubit count: 15× from 2→8 qubits (2.57×10⁻¹ → 1.72×10⁻², slope −0.227/qubit on a log10 scale), continuing to 7.5×10⁻⁴ at an extended 14 qubits with no sign of levelling off — the textbook barren-plateau signature. It shows no such trend with depth (0.564 → 0.178 → 0.063 → 0.136 across 1–4 layers, non-monotonic), and Experiment 4's unstable configuration (`depth_1`) has the *largest* gradient variance of any point measured — ruling out vanishing gradients as the cause of that instability. Accuracy stays flat at 97.7–99.7% across the exact qubit range where variance falls 15×, so the plateau mechanism is measurably present but not yet the binding constraint at the 4–8 qubit scale this project trains at. A local-cost readout would not help: its variance decays *faster* with qubit count (−0.304/qubit vs. −0.227), and at odd depths (1, 3) its gradient is exactly zero to machine precision — a structural cancellation from the `BasicEntanglerLayers` CNOT ring, not a plateau.
+
+**Experiment 8 — qubit/depth ablation on full 10-class MNIST (single seed, 2,500/500 per class).** The same seven configurations that spanned only 2.00pp on the 3-class subset (97.7–99.7%, zero rank correlation, direction reversing twice) span **35.96pp** here (60.2–96.2%) with the qubit sweep now perfectly rank-ordered (Spearman ρ=1.0) — confirming Experiment 3's flat, zigzagging ranking was a ceiling artifact of the easy subset, not evidence the architecture doesn't matter. Almost all of that spread is one step: 2→4 qubits gains +35.1pp, while the whole 4→8 range adds only +0.84pp — a saturation curve, not a linear return on qubits. The depth sweep still zigzags (82.82% → 95.34% → 94.92% → 95.76%, Spearman 0.8), but again one step dominates (1→2 layers: +12.5pp) with the 2–4 layer range flat at 0.84pp, consistent with Experiment 7 finding no depth-related gradient effect. Caveat: test loss was still falling at epoch 15 for 6 of 7 configs, so these are lower-bound accuracies, not fully converged ones.
 
 Numbers above are point-in-time snapshots — see each experiment's `results/*/summary.csv` or `metrics.csv` for current values, and re-run the corresponding notebook to regenerate.
