@@ -30,6 +30,13 @@ def load_checkpoint(path):
 
 
 def train_one_epoch(model, loader, optimizer, criterion, device):
+    """Run one full pass over `loader`, updating `model`'s weights. Returns the
+    average training loss for the epoch.
+
+    Standalone helper for tests and notebooks -- `run_training` below has its
+    own inlined version of this loop so it can checkpoint mid-epoch, which
+    this simpler version doesn't need to support.
+    """
     model.train()
     total_loss = 0.0
     n_batches = 0
@@ -46,6 +53,12 @@ def train_one_epoch(model, loader, optimizer, criterion, device):
 
 
 def evaluate(model, loader, criterion, device):
+    """Run `model` over `loader` with gradients disabled.
+
+    Returns (average loss, predicted labels, true labels) as numpy arrays, so
+    callers can hand `y_pred`/`y_true` straight to `compute_metrics` or a
+    confusion matrix without any extra conversion.
+    """
     model.eval()
     total_loss = 0.0
     n_batches = 0

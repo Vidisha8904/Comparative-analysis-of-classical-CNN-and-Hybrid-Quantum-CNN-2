@@ -1,4 +1,4 @@
-data/
+/data/
 __pycache__/
 *.pyc
 .pytest_cache/
@@ -10,4 +10,5 @@ results/**/*.pt
 results/**/*.csv
 results/**/*.png
 figures/*.png
+.claude/
 papers/

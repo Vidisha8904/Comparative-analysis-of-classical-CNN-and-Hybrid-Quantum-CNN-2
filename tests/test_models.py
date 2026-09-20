@@ -36,10 +36,11 @@ def test_hybrid_cnn_forward_is_differentiable():
     assert grad_found
 
 
-def test_classical_cnn_default_params_match_phase1():
-    """adaptive_pool_size=None must reproduce Phase 1's exact parameter counts --
-    the same reproducibility check used for the data_seed/training_seed split in
-    Phase 4, now applied to the Phase 6 capacity refactor."""
+def test_classical_cnn_default_params_match_experiment_1():
+    """adaptive_pool_size=None must reproduce Experiment 1's exact parameter
+    counts -- the same kind of reproducibility check used for the
+    data_seed/training_seed split in Experiment 4, now applied to the
+    Experiment 6 capacity refactor."""
     assert sum(p.numel() for p in ClassicalCNN(num_classes=10).parameters()) == 52138
     assert sum(p.numel() for p in ClassicalCNN(num_classes=3).parameters()) == 51683
 

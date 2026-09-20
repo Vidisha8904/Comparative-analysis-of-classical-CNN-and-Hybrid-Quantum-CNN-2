@@ -1,0 +1,22 @@
+# Phase 7, Sweep A (qubit count): n_qubits=12, n_qlayers held at the Phase 1
+# baseline depth (2). EXTENDED diagnostic point -- beyond the Phase 3 trainable range.
+#
+# No dataset/training block: this diagnostic never trains a model and never
+# touches MNIST. It samples gradients of the bare quantum circuit, so the only
+# randomness is the weight draw -- controlled by sampling_seed below rather
+# than by the data_seed/training_seed pair the training experiments use.
+
+sampling_seed: 42   # seeds the N random weight draws only -- no data, no training
+
+model:
+  n_qubits: 12
+  n_qlayers: 2
+  encoding: angle   # qml.AngleEmbedding -- same circuit as HybridCNN's quantum layer
+  device: "default.qubit"
+
+sampling:
+  n_samples: 200        # N random initialisations per configuration (McClean et al. 2018)
+  param_index: 0        # flat index into the (n_layers, n_qubits) weight array -> weights[0][0]
+  reference_input: zeros  # all-zero embedding angles => circuit starts in |0...0>
+
+output_dir: "results/barren_plateau/qubits"

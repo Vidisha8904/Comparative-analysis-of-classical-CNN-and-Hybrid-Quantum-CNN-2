@@ -1,15 +1,15 @@
-"""Phase 4 + Phase 5 multi-seed variance checks.
+"""Experiments 4 and 5: multi-seed variance checks.
 
-Phase 4 re-runs the Phase 3 ablation sweep extremes (qubits_2, qubits_8,
-depth_1, depth_2) across training_seed in {43, 44, 45, 46} -- data_seed stays
-fixed at 42 throughout, so only weight initialization and batch shuffling
-vary between seeds, never which images were subsampled. Phase 5 applies the
-same treatment to the Phase 1 base model comparison (classical_subset,
-hybrid_subset), since that headline result was also single-seed only. In
-both phases, the training_seed=42 point already exists from the earlier
-phase (results/ablation/<group>/ or results/base/<group>/) and is reused
-rather than retrained. Reports mean +/- sample std of accuracy and F1 across
-all 5 seeds per config.
+Experiment 4 re-runs the Experiment 3 ablation sweep extremes (qubits_2,
+qubits_8, depth_1, depth_2) across training_seed in {43, 44, 45, 46} --
+data_seed stays fixed at 42 throughout, so only weight initialization and
+batch shuffling vary between seeds, never which images were subsampled.
+Experiment 5 applies the same treatment to the Experiment 1 base model
+comparison (classical_subset, hybrid_subset), since that headline result was
+also single-seed only. In both cases, the training_seed=42 point already
+exists from the earlier experiment (results/ablation/<group>/ or
+results/base/<group>/) and is reused rather than retrained. Reports the mean
++/- sample std of accuracy and F1 across all 5 seeds per config.
 
 CLI: python -m src.experiments.run_multiseed --config-group qubits_2
      python -m src.experiments.run_multiseed --config-group hybrid_subset
@@ -26,8 +26,8 @@ import yaml
 from src.experiments.run_ablation import run_single as run_single_hybrid
 from src.experiments.run_classical import run_single as run_single_classical
 
-# The four Phase 3 sweep extremes plus the two Phase 1 base models under
-# study, and where each one's existing training_seed=42 result lives.
+# The four Experiment 3 sweep extremes plus the two Experiment 1 base models
+# under study, and where each one's existing training_seed=42 result lives.
 GROUPS = {
     "qubits_2": {"model_type": "hybrid", "n_qubits": 2, "n_qlayers": 2, "parent_results": "results/ablation/qubits_2"},
     "qubits_8": {"model_type": "hybrid", "n_qubits": 8, "n_qlayers": 2, "parent_results": "results/ablation/qubits_8"},
@@ -45,12 +45,14 @@ def train_config(config, output_dir, model_type):
     else:
         run_single_hybrid(config, output_dir)
 
+
 NEW_SEEDS = [43, 44, 45, 46]
 SUMMARY_PATH = "results/multiseed/summary.csv"
 PER_SEED_PATH = "results/multiseed/per_seed_metrics.csv"
 
 
 def final_epoch_metrics(metrics_csv_path):
+    """Return (accuracy, f1_macro) from the last row of a run's metrics CSV."""
     df = pd.read_csv(metrics_csv_path)
     final = df.iloc[-1]
     return float(final["accuracy"]), float(final["f1_macro"])
@@ -85,13 +87,15 @@ def update_per_seed_csv(rows):
 
 
 def run_group(group_name):
+    """Run every new seed for one group, reusing its existing seed-42 result,
+    then update the shared summary and per-seed CSVs."""
     spec = GROUPS[group_name]
     print(
         f"=== Multiseed group: {group_name} "
         f"(n_qubits={spec['n_qubits']}, n_qlayers={spec['n_qlayers']}) ==="
     )
 
-    # training_seed=42 already exists from the earlier phase -- reuse, don't retrain.
+    # training_seed=42 already exists from the earlier experiment -- reuse, don't retrain.
     parent_csv = os.path.join(spec["parent_results"], "metrics.csv")
     acc42, f1_42 = final_epoch_metrics(parent_csv)
     accuracies = [acc42]
@@ -152,6 +156,7 @@ def run_group(group_name):
 
 
 def main():
+    """Run the multi-seed sweep for one group, or every group with --config-group all."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--config-group", choices=list(GROUPS) + ["all"], required=True)
     args = parser.parse_args()

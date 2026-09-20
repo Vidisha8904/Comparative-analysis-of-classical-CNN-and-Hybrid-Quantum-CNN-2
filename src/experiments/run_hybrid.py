@@ -16,6 +16,7 @@ from src.utils.seed import set_seed
 
 
 def main():
+    """Load a config file and train the hybrid quantum CNN it describes."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, required=True)
     args = parser.parse_args()

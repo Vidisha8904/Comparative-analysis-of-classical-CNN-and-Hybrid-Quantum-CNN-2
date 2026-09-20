@@ -1,11 +1,11 @@
 """CLI entrypoint: python -m src.experiments.run_noise_eval --config configs/noise/hybrid_noise_eval.yaml
 
-Option 1 noise-robustness experiment: no retraining. Loads the already-trained
-hybrid_subset checkpoint once, then re-evaluates it at each noise level in
-config['noise']['levels'] by rebuilding the model with that noise_prob and
-loading the same trained weights back in -- noise only changes how the
-circuit is executed, not the shape of its trainable parameters, so the
-state dict transfers directly across noise levels.
+Noise-robustness experiment, evaluation-only variant: no retraining involved.
+Loads the already-trained hybrid_subset checkpoint once, then re-evaluates it
+at each noise level in config['noise']['levels'] by rebuilding the model with
+that noise_prob and loading the same trained weights back in. Noise only
+changes how the circuit is executed, not the shape of its trainable
+parameters, so the same state dict transfers cleanly across every noise level.
 """
 
 import argparse
@@ -25,6 +25,8 @@ from src.utils.seed import set_seed
 
 
 def main():
+    """Evaluate a trained hybrid model at every noise level in the config, and
+    plot accuracy/F1 vs. noise level."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, required=True)
     args = parser.parse_args()

@@ -1,6 +1,7 @@
 """Plotting helpers for training curves and cross-run comparisons."""
 
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 
 
@@ -51,13 +52,16 @@ def plot_noise_sweep(csv_path, save_path):
     return fig
 
 
-def plot_ablation_qubits(summary_csv, save_path):
-    """Plot final-epoch accuracy and parameter count vs n_qubits (Phase 3, Sweep A).
+def plot_ablation_qubits(summary_csv, save_path, title=None):
+    """Plot final-epoch accuracy and parameter count vs n_qubits (Experiment 3, Sweep A).
 
     Expects results/ablation/metrics_summary.csv with a `sweep` column; only
     rows where sweep == "qubits" are used. Dual axes since more qubits also
     means more trainable parameters -- the interesting question is whether
     the accuracy gain (if any) justifies the parameter cost.
+
+    `title` overrides the default, e.g. to name the dataset regime being swept
+    when the same plot is produced for more than one of them.
     """
     df = pd.read_csv(summary_csv)
     df = df[df["sweep"] == "qubits"].sort_values("n_qubits")
@@ -77,21 +81,24 @@ def plot_ablation_qubits(summary_csv, save_path):
     ax2.set_ylabel("Trainable parameters", color="tab:orange")
     ax2.tick_params(axis="y", labelcolor="tab:orange")
 
-    ax1.set_title("Ablation Sweep A: accuracy & parameter count vs qubit count")
+    ax1.set_title(title or "Ablation Sweep A: accuracy & parameter count vs qubit count")
     fig.tight_layout()
     fig.savefig(save_path)
     plt.close(fig)
     return fig
 
 
-def plot_ablation_depth(summary_csv, save_path):
-    """Plot final-epoch accuracy vs n_qlayers (Phase 3, Sweep B).
+def plot_ablation_depth(summary_csv, save_path, title=None):
+    """Plot final-epoch accuracy vs n_qlayers (Experiment 3, Sweep B).
 
     Expects results/ablation/metrics_summary.csv with a `sweep` column; only
     rows where sweep == "depth" are used. A plateau or decline at higher
     layer counts is a known, citable phenomenon in variational quantum
     circuits (barren plateaus / vanishing gradients), not a bug -- callers
     should check the return value to decide whether to flag it.
+
+    `title` overrides the default, e.g. to name the dataset regime being swept
+    when the same plot is produced for more than one of them.
     """
     df = pd.read_csv(summary_csv)
     df = df[df["sweep"] == "depth"].sort_values("n_qlayers")
@@ -100,7 +107,7 @@ def plot_ablation_depth(summary_csv, save_path):
     ax.plot(df["n_qlayers"], df["accuracy"], marker="o", color="tab:blue")
     ax.set_xlabel("Number of entangling layers (depth)")
     ax.set_ylabel("Accuracy")
-    ax.set_title("Ablation Sweep B: accuracy vs circuit depth")
+    ax.set_title(title or "Ablation Sweep B: accuracy vs circuit depth")
     ax.set_xticks(df["n_qlayers"])
 
     fig.tight_layout()
@@ -124,11 +131,11 @@ def plot_multiseed_variance(summary_csv, per_seed_csv, save_path, configs=None, 
     per_seed_csv from update_per_seed_csv (columns: config, training_seed,
     accuracy).
 
-    Both CSVs are shared across every multiseed group (Phase 4 and Phase 5
-    alike), so `configs` restricts the plot to a chosen subset -- e.g. just
-    ["classical_subset", "hybrid_subset"] -- in the given order, instead of
-    plotting every row accumulated so far. `title` overrides the default
-    Phase 4 title for callers plotting a different subset.
+    Both CSVs are shared across every multiseed group (Experiment 4 and
+    Experiment 5 alike), so `configs` restricts the plot to a chosen subset --
+    e.g. just ["classical_subset", "hybrid_subset"] -- in the given order,
+    instead of plotting every row accumulated so far. `title` overrides the
+    default title for callers plotting a different subset.
     """
     summary_df = pd.read_csv(summary_csv)
     if configs is not None:
@@ -160,7 +167,7 @@ def plot_multiseed_variance(summary_csv, per_seed_csv, save_path, configs=None, 
     ax.set_xticks(list(x_positions))
     ax.set_xticklabels(summary_df["config"])
     ax.set_ylabel("Accuracy")
-    ax.set_title(title or "Phase 4: accuracy variance across training_seed (data_seed fixed at 42)")
+    ax.set_title(title or "Experiment 4: accuracy variance across training_seed (data_seed fixed at 42)")
     ax.legend()
 
     fig.tight_layout()
@@ -170,7 +177,7 @@ def plot_multiseed_variance(summary_csv, per_seed_csv, save_path, configs=None, 
 
 
 def plot_accuracy_vs_params(summary_csv, save_path, highlight_config=None):
-    """Plot accuracy vs parameter count (Phase 6 capacity comparison).
+    """Plot accuracy vs parameter count (Experiment 6 capacity comparison).
 
     Expects results/capacity/summary.csv with columns `config`, `parameters`,
     `accuracy`. All rows except `highlight_config` are treated as the classical
@@ -209,7 +216,7 @@ def plot_accuracy_vs_params(summary_csv, save_path, highlight_config=None):
     ax.set_xscale("log")
     ax.set_xlabel("Trainable parameters (log scale)")
     ax.set_ylabel("Accuracy")
-    ax.set_title("Phase 6: accuracy vs parameter count")
+    ax.set_title("Experiment 6: accuracy vs parameter count")
     ax.legend()
 
     fig.tight_layout()
@@ -244,3 +251,113 @@ def plot_comparison(csv_paths, metric, save_path, title=None):
     fig.savefig(save_path)
     plt.close(fig)
     return fig
+
+
+# Below this, a sampled gradient variance is exactly zero to machine precision
+# rather than merely small: the observable and the differentiated weight are
+# structurally decoupled by the ansatz (see run_barren_plateau_check.py). Such
+# points cannot be drawn on a log axis or included in a decay fit -- 1e-33 would
+# stretch the axis over thirty meaningless decades -- so they are separated out
+# and marked, never silently dropped.
+GRADIENT_ZERO_TOL = 1e-20
+
+
+def _plot_gradient_variance(summary_csv, save_path, sweep, x_column, x_label, title,
+                            trained_range=None):
+    """Shared implementation for the two Experiment 7 barren-plateau diagnostic plots.
+
+    Plots Var(dC/dtheta) against `x_column` on a log-scale y-axis, one line per
+    cost_type (global vs local). The log scale is the whole point: a barren
+    plateau means the variance decays exponentially in the swept quantity, which
+    shows up as a *straight line* here. A flat line rules the effect out over the
+    range plotted.
+
+    The legend reports the least-squares slope of log10(variance) vs the swept
+    quantity, so "is this a straight decline or flat noise?" can be read off a
+    number rather than eyeballed -- a slope near 0 is flat, a clearly negative
+    slope is exponential decay of the form Var ~ 10^(slope * x).
+
+    `trained_range` optionally shades the sub-range this project actually trains
+    models over, so diagnostic-only points sampled beyond it (which no trained
+    model in this dissertation uses) stay visually distinguishable.
+    """
+    df = pd.read_csv(summary_csv)
+    df = df[df["sweep"] == sweep].sort_values(x_column)
+
+    fig, ax = plt.subplots(figsize=(7, 4.5))
+    colors = {"global": "tab:blue", "local": "tab:orange"}
+
+    nonzero = df[df["gradient_variance"] > GRADIENT_ZERO_TOL]
+    floor = nonzero["gradient_variance"].min() / 5 if not nonzero.empty else 1e-12
+
+    for cost_type, group in df.groupby("cost_type"):
+        group = group.sort_values(x_column)
+        drawable = group[group["gradient_variance"] > GRADIENT_ZERO_TOL]
+        degenerate = group[group["gradient_variance"] <= GRADIENT_ZERO_TOL]
+
+        label = f"{cost_type} cost"
+        if len(drawable) >= 2:
+            slope = np.polyfit(drawable[x_column], np.log10(drawable["gradient_variance"]), 1)[0]
+            label = f"{label} (log10 slope = {slope:+.3f}/step)"
+        ax.plot(
+            drawable[x_column], drawable["gradient_variance"],
+            marker="o", color=colors.get(cost_type), label=label,
+        )
+
+        if not degenerate.empty:
+            # Pinned below the smallest real measurement, hollow, so it reads as
+            # "off the scale / identically zero" rather than "very small".
+            ax.scatter(
+                degenerate[x_column], [floor] * len(degenerate),
+                marker="v", s=70, facecolors="none", edgecolors=colors.get(cost_type),
+                zorder=4,
+                label=f"{cost_type}: gradient identically zero (structural)",
+            )
+
+    ax.set_yscale("log")
+    ax.set_ylim(bottom=floor / 2)
+
+    if trained_range is not None:
+        ax.axvspan(
+            trained_range[0], trained_range[1], color="tab:green", alpha=0.07, zorder=0,
+        )
+        ax.axvline(trained_range[1], color="tab:green", linestyle=":", linewidth=1)
+        ax.text(
+            trained_range[1], ax.get_ylim()[1], " diagnostic-only range ->",
+            fontsize=7, color="tab:green", va="top",
+        )
+
+    ax.set_xlabel(x_label)
+    ax.set_ylabel(r"Var($\partial C / \partial \theta$)  [log scale]")
+    ax.set_title(title)
+    ax.set_xticks(sorted(df[x_column].unique()))
+    ax.grid(True, which="both", alpha=0.25)
+    ax.legend(fontsize=8)
+
+    fig.tight_layout()
+    fig.savefig(save_path)
+    plt.close(fig)
+    return fig
+
+
+def plot_gradient_variance_vs_qubits(summary_csv, save_path, trained_range=(2, 8)):
+    """Experiment 7, Sweep A: gradient variance vs qubit count, global and local cost."""
+    return _plot_gradient_variance(
+        summary_csv, save_path,
+        sweep="qubits",
+        x_column="n_qubits",
+        x_label="Number of qubits",
+        title="Barren-plateau check: gradient variance vs qubit count (depth fixed at 2)",
+        trained_range=trained_range,
+    )
+
+
+def plot_gradient_variance_vs_depth(summary_csv, save_path):
+    """Experiment 7, Sweep B: gradient variance vs circuit depth, global and local cost."""
+    return _plot_gradient_variance(
+        summary_csv, save_path,
+        sweep="depth",
+        x_column="n_qlayers",
+        x_label="Number of entangling layers (depth)",
+        title="Barren-plateau check: gradient variance vs circuit depth (width fixed at 4)",
+    )

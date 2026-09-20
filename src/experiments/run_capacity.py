@@ -1,19 +1,19 @@
-"""Phase 6 parameter-matched capacity comparison.
+"""Experiment 6: parameter-matched capacity comparison.
 
-Phase 1's parameter-efficiency finding (hybrid_full matches classical_full's
-accuracy with far fewer parameters) was never tested under a controlled,
-equal-budget comparison. This script trains two new classical CNNs --
-classical_full_matched (~3,410 params, matching hybrid_full exactly) and
-classical_full_mid (~10,000 params, showing the shape of the curve in
-between) -- on the full MNIST dataset, then combines them with the existing
-(not retrained) classical_full and hybrid_full Phase 1 results into a single
-accuracy-vs-parameter-count comparison. See section 14 of the build spec.
+Experiment 1's parameter-efficiency finding -- hybrid_full matches
+classical_full's accuracy with far fewer parameters -- was never tested under
+a controlled, equal-budget comparison. This script trains two new classical
+CNNs on full MNIST -- classical_full_matched (~3,410 params, matching
+hybrid_full exactly) and classical_full_mid (~10,000 params, filling in the
+shape of the curve in between) -- then combines them with the existing (not
+retrained) classical_full and hybrid_full results from Experiment 1 into a
+single accuracy-vs-parameter-count comparison. See section 14 of the build spec.
 
 Reuses run_classical.py's run_single training logic unchanged; this script's
 only job is to loop over configs/capacity/*.yaml, verify each model's actual
 parameter count lands within ~1% of its documented target_parameters before
 training, organize output under results/capacity/, and fold in the two
-reused Phase 1 points to build results/capacity/summary.csv and
+reused Experiment 1 points to build results/capacity/summary.csv and
 figures/capacity_accuracy_vs_params.png.
 
 CLI: python -m src.experiments.run_capacity
@@ -34,7 +34,7 @@ NEW_CONFIGS = [
     "configs/capacity/classical_full_mid.yaml",
 ]
 
-# The two Phase 1 points this phase reuses rather than retrains.
+# The two Experiment 1 points this experiment reuses rather than retrains.
 REUSED = {
     "classical_full": "results/base/classical_full/metrics.csv",
     "hybrid_full": "results/base/hybrid_full/metrics.csv",
@@ -45,6 +45,7 @@ PARAM_COUNT_TOLERANCE = 0.01  # 1%
 
 
 def final_epoch_row(metrics_csv_path):
+    """Return the last row (final epoch) of a run's metrics CSV."""
     df = pd.read_csv(metrics_csv_path)
     return df.iloc[-1]
 
@@ -71,6 +72,7 @@ def check_parameter_count(config):
 
 
 def run_new_configs():
+    """Train both capacity-matched classical CNNs and collect their final metrics."""
     rows = []
     for i, config_path in enumerate(NEW_CONFIGS, start=1):
         with open(config_path) as f:
@@ -102,6 +104,7 @@ def run_new_configs():
 
 
 def collect_reused_rows():
+    """Pull final-epoch metrics for the two Experiment 1 points without retraining them."""
     rows = []
     for config_name, metrics_csv_path in REUSED.items():
         final = final_epoch_row(metrics_csv_path)
@@ -119,6 +122,8 @@ def collect_reused_rows():
 
 
 def main():
+    """Train the capacity-matched configs, fold in the reused Experiment 1
+    points, and write the combined summary CSV and comparison figure."""
     new_rows = run_new_configs()
     reused_rows = collect_reused_rows()
 

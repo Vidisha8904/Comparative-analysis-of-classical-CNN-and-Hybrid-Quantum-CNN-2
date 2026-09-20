@@ -16,13 +16,16 @@ from src.utils.seed import set_seed
 
 
 def run_single(config, output_dir):
-    """Train one ClassicalCNN from a config dict and save its outputs -- reused
-    by run_multiseed.py (Phase 5) and run_capacity.py (Phase 6) so every classical
-    training run shares this logic instead of duplicating it.
+    """Train one ClassicalCNN from a config dict and save its outputs.
 
-    `fc_hidden`/`adaptive_pool_size` default to the unmodified Phase 1-5 architecture
-    when a config's `model` block doesn't set them (base/multiseed configs never do);
-    Phase 6's capacity configs set both to hit specific parameter-count targets.
+    Also reused by run_multiseed.py (Experiment 5) and run_capacity.py
+    (Experiment 6), so every classical training run goes through this one
+    function instead of duplicating the training/saving logic.
+
+    `fc_hidden`/`adaptive_pool_size` default to the original architecture used
+    everywhere except Experiment 6 -- base and multiseed configs never set
+    them, while Experiment 6's capacity configs set both to hit specific
+    parameter-count targets.
     """
     set_seed(config["training_seed"])
 
@@ -48,6 +51,7 @@ def run_single(config, output_dir):
 
 
 def main():
+    """Load a config file and train the classical CNN it describes."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, required=True)
     args = parser.parse_args()

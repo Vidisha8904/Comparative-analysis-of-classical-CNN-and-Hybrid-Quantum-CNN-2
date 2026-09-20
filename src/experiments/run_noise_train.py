@@ -1,10 +1,11 @@
 """CLI entrypoint: python -m src.experiments.run_noise_train --config configs/noise/hybrid_noise_train_10.yaml
 
-Option 2 noise-robustness experiment: identical training logic to run_hybrid.py
--- a normal full training run, just with model.noise_prob set in the config so
-the quantum layer trains under simulated depolarizing noise from the start.
-This script exists mainly for clear naming/output separation under
-results/noise/, rather than for any new training behavior.
+Noise-robustness experiment, training variant: a normal full training run,
+identical in logic to run_hybrid.py, just with model.noise_prob set in the
+config so the quantum layer trains under simulated depolarizing noise from
+the start rather than only being evaluated under it. This script exists
+mainly to keep output cleanly separated under results/noise/, not because the
+training logic itself differs.
 """
 
 import argparse
@@ -23,6 +24,8 @@ from src.utils.seed import set_seed
 
 
 def main():
+    """Load a config file and train the hybrid CNN it describes, with
+    depolarizing noise active during training if model.noise_prob > 0."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, required=True)
     args = parser.parse_args()

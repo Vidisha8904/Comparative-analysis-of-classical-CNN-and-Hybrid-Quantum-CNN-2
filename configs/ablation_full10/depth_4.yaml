@@ -1,0 +1,45 @@
+# Experiment 7, Sweep B (circuit depth): n_qlayers=4, n_qubits held at the baseline (4).
+#
+# Dataset regime: full10_2500 -- all 10 MNIST classes (real decision-boundary
+# complexity, unlike the near-trivial 3-class subset) but capped at 2500 train /
+# 500 test per class = 25,000 / 5,000 total. This is the middle ground between
+# Experiment 3's 3-class subset (900/300, which hit a 97.7-99.7% ceiling with no
+# trend) and Experiment 1's hybrid_full (60k/10k at ~304s/epoch, never ablated
+# because the full matrix was not tractable).
+
+data_seed: 42   # fixed across every phase -- controls which images subsample_per_class picks
+training_seed: 42   # varies in Phase 4's multi-seed sweep -- controls weight init + batch shuffling
+
+dataset:
+  classes: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
+  samples_per_class_train: 2500   # cap, not the natural class size -- smallest train class is 5421
+  samples_per_class_test: 500     # cap -- smallest test class is 892
+  data_root: "data"
+
+training:
+  # batch_size 64 matches configs/base/hybrid_full.yaml: this regime is closer in
+  # scale to the full dataset than to the 3-class subset (which used 32).
+  batch_size: 64
+  # 15 epochs, three more than hybrid_full's 12 -- Section 4.4 flagged possible
+  # non-convergence for the full run at 12. This regime is 2.4x smaller so should
+  # converge sooner, but the headroom is cheap.
+  epochs: 15
+  learning_rate: 0.001   # identical to every other experiment in the project
+  optimizer: adam
+  checkpoint_every_n_batches: 200   # matches hybrid_full; 391 batches/epoch here
+  resume_from_checkpoint: null
+  max_batches: null
+
+model:
+  num_classes: 10   # all ten digits, unlike the 3-class ablation configs
+  n_qubits: 4
+  n_qlayers: 4
+  encoding: angle   # qml.AngleEmbedding
+  # default.qubit, matching configs/ablation/ -- NOT hybrid_full's lightning.qubit.
+  # Measured on this machine, lightning.qubit is ~6x slower than default.qubit at
+  # 2-8 qubits: its per-call C++ dispatch overhead dominates until roughly 15
+  # qubits, and this ablation never leaves that range. Keeping default.qubit also
+  # makes the comparison against Experiment 3 a pure dataset-regime change.
+  device: "default.qubit"
+
+output_dir: "results/ablation_full10/depth_4"
