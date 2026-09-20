@@ -12,3 +12,4 @@ results/**/*.png
 figures/*.png
 .claude/
 papers/
+Claude outputs/
